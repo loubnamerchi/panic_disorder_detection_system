@@ -1,0 +1,28 @@
+Feature,Mean_Absolute_SHAP
+Lifestyle Factors_Sleep quality,2.718192654575606
+Current Stressors_Moderate,1.1173011965224537
+Current Stressors_Low,1.0566181685858036
+Impact on Life_Significant,0.9779929835114431
+Severity_Severe,0.9324261111733138
+Family History,0.7589883792257774
+Symptoms_Panic attacks,0.7561678681651702
+Personal History,0.6740072416949097
+Coping Mechanisms_Socializing,0.458345574027586
+Coping Mechanisms_Seeking therapy,0.45659820693900266
+Coping Mechanisms_Meditation,0.44104847472019876
+Social Support_Low,0.3707090494488206
+Lifestyle Factors_Exercise,0.19718105752060408
+Demographics,0.1781222914215811
+Psychiatric History_Bipolar disorder,0.142135881040807
+Substance Use,0.12243628725061115
+Medical History_Diabetes,0.11700568966916684
+Age,0.10635441683636634
+Symptoms_Dizziness,0.08726711089189072
+Severity_Moderate,0.07957322911329173
+Impact on Life_Moderate,0.06307011647777903
+Symptoms_Shortness of breath,0.058632998103097606
+Symptoms_Fear of losing control,0.05705590651489507
+Gender,0.03424841147409856
+Social Support_Moderate,0.02945778210813039
+Medical History_Heart disease,0.012731364656419985
+Psychiatric History_Depressive disorder,0.012449709153123795

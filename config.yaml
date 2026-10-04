@@ -1,0 +1,360 @@
+data:
+  train_raw_path: "data/raw/panic_disorder_dataset_training.csv"
+  test_raw_path: "data/raw/panic_disorder_dataset_testing.csv"
+  raw_path: "data/raw/panic_disorder_dataset.csv"
+
+  target_column: "Panic Disorder Diagnosis"
+  id_column: "Participant ID"
+  drop_optional_features: False
+
+
+paths:
+  artifacts: "artifacts/"
+  figures: "artifacts/figures/"
+
+  scaler: "artifacts/preprocessing/scaler.joblib"
+  preprocessor: "artifacts/preprocessing/preprocessor.pkl"
+  feature_engineer: "artifacts/feature_engineering/feature_engineer.pkl"
+  feature_names: "artifacts/feature_engineering/feature_names.json"
+
+  processed_train: "data/processed/X_train.parquet"
+  processed_val: "data/processed/X_val.parquet"
+  processed_test: "data/processed/X_test.parquet"
+
+  processed_train_scale: "data/processed/X_train_scaled.parquet"
+  processed_val_scale: "data/processed/X_val_scaled.parquet"
+  processed_test_scale: "data/processed/X_test_scaled.parquet"
+
+  processed_y_train: "data/processed/y_train.parquet"
+  processed_y_val: "data/processed/y_val.parquet"
+  processed_y_test: "data/processed/y_test.parquet"
+
+  validation: "data/validation.csv"
+  validation_template: "data/validation-predictions-template.csv"
+
+
+split:
+  test_size: 0.15
+  val_size: 0.15
+  stratify: true
+
+
+feature_engineering:
+  scale: False
+
+
+ml_models:
+  - "logistic_regression"
+  - "xgboost"
+  - "lightgbm"
+  - "random_forest"
+
+
+dl_models:
+  - "mlp"
+  - "tabnet"
+  - "ft_transformer"
+
+
+experiment:
+
+  # FALSE = baseline experiment
+  # TRUE  = SMOTE experiment
+  use_smote: false
+
+  smote:
+    sampling_strategy: "auto"
+    k_neighbors: 5
+
+
+training:
+
+  # Keep random_state here
+  random_state: 42
+
+  logistic_regression:
+    max_iter: 1000
+    C: 1.0
+    solver: "lbfgs"
+    class_weight: null
+
+  xgboost:
+    n_estimators: 500
+    max_depth: 6
+    learning_rate: 0.05
+    subsample: 0.8
+    colsample_bytree: 0.8
+    min_child_weight: 1
+    reg_alpha: 0.0
+    reg_lambda: 1.0
+
+  lightgbm:
+    n_estimators: 500
+    max_depth: -1
+    num_leaves: 31
+    learning_rate: 0.05
+    subsample: 0.8
+    colsample_bytree: 0.8
+    min_child_samples: 20
+    reg_alpha: 0.0
+    reg_lambda: 1.0
+
+  random_forest:
+    n_estimators: 500
+    max_depth: 10
+    min_samples_split: 2
+    min_samples_leaf: 1
+    max_features: "sqrt"
+
+  mlp:
+    hidden_layers:
+      - 128
+      - 64
+    dropout: 0.2
+    learning_rate: 0.001
+    weight_decay: 0.0001
+    batch_size: 64
+    epochs: 100
+    patience: 15
+    activation: "relu"
+
+  tabnet:
+    n_d: 32
+    n_a: 32
+    n_steps: 5
+    gamma: 1.5
+    n_independent: 2
+    n_shared: 2
+    lambda_sparse: 0.0001
+    learning_rate: 0.02
+    batch_size: 256
+    virtual_batch_size: 128
+    max_epochs: 100
+    patience: 15
+
+  ft_transformer:
+    d_token: 64
+    n_blocks: 4
+    attention_n_heads: 8
+    attention_dropout: 0.2
+    ffn_dropout: 0.2
+    ffn_factor: 4
+    learning_rate: 0.0001
+    weight_decay: 0.0001
+    batch_size: 64
+    epochs: 100
+    patience: 15
+
+
+cross_validation:
+  n_splits: 5
+
+
+optuna:
+
+  enabled: False
+  n_trials: 50
+
+
+  logistic_regression:
+
+    C_min: 0.0001
+    C_max: 100.0
+
+    solver_options:
+      - "lbfgs"
+      - "liblinear"
+
+    class_weight_options:
+      - null
+      - "balanced"
+
+
+  xgboost:
+
+    n_estimators_min: 200
+    n_estimators_max: 1000
+
+    max_depth_min: 3
+    max_depth_max: 10
+
+    learning_rate_min: 0.01
+    learning_rate_max: 0.2
+
+    subsample_min: 0.6
+    subsample_max: 1.0
+
+    colsample_bytree_min: 0.6
+    colsample_bytree_max: 1.0
+
+    min_child_weight_min: 1
+    min_child_weight_max: 10
+
+    reg_alpha_min: 0.0001
+    reg_alpha_max: 10.0
+
+    reg_lambda_min: 0.0001
+    reg_lambda_max: 10.0
+
+
+  lightgbm:
+
+    n_estimators_min: 200
+    n_estimators_max: 1000
+
+    max_depth_min: 3
+    max_depth_max: 12
+
+    num_leaves_min: 15
+    num_leaves_max: 100
+
+    learning_rate_min: 0.01
+    learning_rate_max: 0.2
+
+    subsample_min: 0.6
+    subsample_max: 1.0
+
+    colsample_bytree_min: 0.6
+    colsample_bytree_max: 1.0
+
+    min_child_samples_min: 5
+    min_child_samples_max: 100
+
+    reg_alpha_min: 0.0001
+    reg_alpha_max: 10.0
+
+    reg_lambda_min: 0.0001
+    reg_lambda_max: 10.0
+
+
+  random_forest:
+
+    n_estimators_min: 200
+    n_estimators_max: 1000
+
+    max_depth_min: 5
+    max_depth_max: 30
+
+    min_samples_split_min: 2
+    min_samples_split_max: 20
+
+    min_samples_leaf_min: 1
+    min_samples_leaf_max: 10
+
+    max_features_options:
+      - "sqrt"
+      - "log2"
+      - 1.0
+
+
+  mlp:
+
+    n_layers_min: 1
+    n_layers_max: 4
+
+    hidden_units_min: 32
+    hidden_units_max: 256
+
+    dropout_min: 0.0
+    dropout_max: 0.5
+
+    learning_rate_min: 0.00001
+    learning_rate_max: 0.01
+
+    weight_decay_min: 0.000001
+    weight_decay_max: 0.01
+
+    batch_size_options:
+      - 32
+      - 64
+      - 128
+
+    activation_options:
+      - "relu"
+      - "gelu"
+
+
+  tabnet:
+
+    n_d_min: 8
+    n_d_max: 64
+
+    n_a_min: 8
+    n_a_max: 64
+
+    n_steps_min: 3
+    n_steps_max: 8
+
+    gamma_min: 1.0
+    gamma_max: 2.0
+
+    n_independent_min: 1
+    n_independent_max: 4
+
+    n_shared_min: 1
+    n_shared_max: 4
+
+    lambda_sparse_min: 0.000001
+    lambda_sparse_max: 0.01
+
+    learning_rate_min: 0.0001
+    learning_rate_max: 0.05
+
+    batch_size_options:
+      - 128
+      - 256
+      - 512
+
+    virtual_batch_size_options:
+      - 64
+      - 128
+      - 256
+
+
+  ft_transformer:
+
+    d_token_options:
+      - 32
+      - 64
+      - 128
+
+    n_blocks_min: 2
+    n_blocks_max: 6
+
+    attention_n_heads_options:
+      - 4
+      - 8
+
+    attention_dropout_min: 0.0
+    attention_dropout_max: 0.4
+
+    ffn_dropout_min: 0.0
+    ffn_dropout_max: 0.4
+
+    ffn_factor_min: 2
+    ffn_factor_max: 6
+
+    learning_rate_min: 0.00001
+    learning_rate_max: 0.001
+
+    weight_decay_min: 0.000001
+    weight_decay_max: 0.01
+
+    batch_size_options:
+      - 32
+      - 64
+      - 128
+
+
+artifacts:
+
+  models_dir: "artifacts/models/"
+  metrics_dir: "artifacts/metrics/"
+
+  comparison_metrics: "artifacts/metrics/model_comparison.json"
+
+  feature_names: "artifacts/feature_engineering/feature_names.json"
+
+  model_suffix: "_model.joblib"
+
+  validation_predictions: "data/validation_predictions.csv"

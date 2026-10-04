@@ -1,0 +1,54 @@
+Gender:
+- Female
+- Male
+Family History:
+- 'No'
+- 'Yes'
+Personal History:
+- 'No'
+- 'Yes'
+Current Stressors:
+- High
+- Low
+- Moderate
+Symptoms:
+- Chest pain
+- Dizziness
+- Fear of losing control
+- Panic attacks
+- Shortness of breath
+Severity:
+- Mild
+- Moderate
+- Severe
+Impact on Life:
+- Mild
+- Moderate
+- Significant
+Demographics:
+- Rural
+- Urban
+Medical History:
+- Asthma
+- Diabetes
+- Heart disease
+Psychiatric History:
+- Anxiety disorder
+- Bipolar disorder
+- Depressive disorder
+Substance Use:
+- Alcohol
+- Drugs
+Coping Mechanisms:
+- Exercise
+- Meditation
+- Seeking therapy
+- Socializing
+Social Support:
+- High
+- Low
+- Moderate
+Lifestyle Factors:
+- Diet
+- Exercise
+- Sleep quality
