@@ -5,16 +5,18 @@ import pandas as pd
 import requests
 import streamlit as st
 import yaml
-
+import sys
 
 # =============================================================================
 # SETTINGS
 # =============================================================================
 
-API_URL = os.getenv("API_URL", "http://localhost:8000")
+#API_URL = os.getenv("API_URL", "https://panic-disorder-detection-system.onrender.com")
+API_URL = "https://panic-disorder-detection-system.onrender.com"
 CATEGORIES_FILE = Path("categorical_values.yaml")
 
 BATCH_SIZE = 1000
+
 
 
 # =============================================================================
@@ -27,6 +29,23 @@ st.set_page_config(
     layout="wide",
 )
 
+
+st.write("Python:", sys.version)
+st.write("API URL:", API_URL)
+
+try:
+    response = requests.get(
+        f"{API_URL}/info",
+        timeout=120,
+    )
+
+    st.success("Connection successful")
+    st.write("HTTP status:", response.status_code)
+    st.json(response.json())
+
+except Exception as e:
+    st.error(f"FAILED: {type(e).__name__}")
+    st.code(str(e))
 
 # =============================================================================
 # LOAD DROPDOWN VALUES
@@ -54,8 +73,9 @@ except Exception as e:
 def get_api_info():
     response = requests.get(
         f"{API_URL}/info",
-        timeout=5,
+        timeout=160,
     )
+
     response.raise_for_status()
     return response.json()
 
@@ -63,8 +83,9 @@ def get_api_info():
 def get_api_health():
     response = requests.get(
         f"{API_URL}/health",
-        timeout=5,
+        timeout=160,
     )
+
     response.raise_for_status()
     return response.json()
 
@@ -126,9 +147,14 @@ with st.sidebar:
 
     except requests.exceptions.ConnectionError:
         st.error("API unreachable")
+        
 
+    
     except requests.exceptions.Timeout:
         st.error("API request timed out")
+    
+
+    
 
     except Exception as e:
         st.error(f"API error: {e}")
@@ -309,7 +335,7 @@ if mode == "Single prediction":
                 response = requests.post(
                     f"{API_URL}/predict",
                     json=payload,
-                    timeout=10,
+                    timeout=160,
                 )
 
             response.raise_for_status()
@@ -487,7 +513,7 @@ elif mode == "Batch prediction":
                                 response = requests.post(
                                     f"{API_URL}/predict/batch",
                                     json=payload,
-                                    timeout=60,
+                                    timeout=160,
                                 )
 
                                 response.raise_for_status()
