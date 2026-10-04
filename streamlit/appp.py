@@ -11,8 +11,8 @@ import sys
 # SETTINGS
 # =============================================================================
 
-#API_URL = os.getenv("API_URL", "https://panic-disorder-detection-system.onrender.com")
-API_URL = "https://panic-disorder-detection-system.onrender.com"
+API_URL = os.getenv("API_URL", "https://panic-disorder-detection-system.onrender.com")
+#API_URL = "https://panic-disorder-detection-system.onrender.com"
 CATEGORIES_FILE = Path("categorical_values.yaml")
 
 BATCH_SIZE = 1000
@@ -29,23 +29,6 @@ st.set_page_config(
     layout="wide",
 )
 
-
-st.write("Python:", sys.version)
-st.write("API URL:", API_URL)
-
-try:
-    response = requests.get(
-        f"{API_URL}/info",
-        timeout=120,
-    )
-
-    st.success("Connection successful")
-    st.write("HTTP status:", response.status_code)
-    st.json(response.json())
-
-except Exception as e:
-    st.error(f"FAILED: {type(e).__name__}")
-    st.code(str(e))
 
 # =============================================================================
 # LOAD DROPDOWN VALUES
