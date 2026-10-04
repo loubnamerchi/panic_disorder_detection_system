@@ -4,7 +4,7 @@ pandas>=2.0,<3
 PyYAML>=6.0,<7
 seaborn>=0.13,<1
 scikit-learn>=1.5,<2
-pyarrow>=15,<22
+pyarrow==18.1.0
 
 # Machine learning
 xgboost>=2.0,<4
