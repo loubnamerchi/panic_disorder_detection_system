@@ -15,6 +15,9 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import average_precision_score
 
 from src.models.ML.model_factory import create_model
+from src.models.evaluate_model import (
+    prepare_features,
+)
 
 
 def run_optuna(
@@ -22,6 +25,7 @@ def run_optuna(
     X_train,
     y_train,
     cfg: dict,
+    use_smotenc,
 ):
 
     model_name = model_name.lower()
@@ -231,12 +235,20 @@ def run_optuna(
             skf.split(X_train, y_train),
             start=1,
         ):
-
+            
+                
             X_tr = X_train.iloc[train_idx]
-            X_fold_val = X_train.iloc[valid_idx]
-
+            X_fold_val = X_train.iloc[valid_idx]              
             y_tr = y_train.iloc[train_idx]
-            y_fold_val = y_train.iloc[valid_idx]
+            y_fold_val = y_train.iloc[valid_idx]    
+            
+            
+            X_tr, y_tr, X_fold_val, _, fe = prepare_features(
+                    X_train=X_tr,y_train=y_tr,                                                                   
+                    X_val=X_fold_val,
+                    use_smotenc=use_smotenc,
+                    random_state=random_state,)
+                
 
             model = create_model(
                 model_name=model_name,

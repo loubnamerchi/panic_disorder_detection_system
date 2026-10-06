@@ -14,16 +14,11 @@ paths:
 
   scaler: "artifacts/preprocessing/scaler.joblib"
   preprocessor: "artifacts/preprocessing/preprocessor.pkl"
-  feature_engineer: "artifacts/feature_engineering/feature_engineer.pkl"
   feature_names: "artifacts/feature_engineering/feature_names.json"
 
   processed_train: "data/processed/X_train.parquet"
   processed_val: "data/processed/X_val.parquet"
   processed_test: "data/processed/X_test.parquet"
-
-  processed_train_scale: "data/processed/X_train_scaled.parquet"
-  processed_val_scale: "data/processed/X_val_scaled.parquet"
-  processed_test_scale: "data/processed/X_test_scaled.parquet"
 
   processed_y_train: "data/processed/y_train.parquet"
   processed_y_val: "data/processed/y_val.parquet"
@@ -38,9 +33,13 @@ split:
   val_size: 0.15
   stratify: true
 
+Experiment:
+  SMOTENC: False
+  
 
 feature_engineering:
   scale: False
+  no_onehot: False
 
 
 ml_models:
@@ -54,17 +53,6 @@ dl_models:
   - "mlp"
   - "tabnet"
   - "ft_transformer"
-
-
-experiment:
-
-  # FALSE = baseline experiment
-  # TRUE  = SMOTE experiment
-  use_smote: false
-
-  smote:
-    sampling_strategy: "auto"
-    k_neighbors: 5
 
 
 training:
@@ -348,13 +336,45 @@ optuna:
 
 artifacts:
 
-  models_dir: "artifacts/models/"
-  metrics_dir: "artifacts/metrics/"
-
-  comparison_metrics: "artifacts/metrics/model_comparison.json"
-
-  feature_names: "artifacts/feature_engineering/feature_names.json"
+  experiment_1_dir: "artifacts/experiment_1"
+  experiment_2_dir: "artifacts/experiment_2"
 
   model_suffix: "_model.joblib"
 
-  validation_predictions: "data/validation_predictions.csv"
+  experiment_1:
+
+    models_dir: "artifacts/experiment_1/models"
+    metrics_dir: "artifacts/experiment_1/metrics"
+
+    comparison_metrics: "artifacts/experiment_1/metrics/model_comparison.json"
+    comparison_table: "artifacts/experiment_1/metrics/model_comparison.csv"
+    comparison_figure: "artifacts/experiment_1/metrics/model_comparison.png"
+
+    feature_names: "artifacts/experiment_1/feature_engineering/feature_names.json"
+
+    validation_predictions: "artifacts/experiment_1/validation_predictions.csv"
+
+    confusion_matrix_dir: "artifacts/experiment_1/metrics/confusion_matrices"
+    shap_dir: "artifacts/experiment_1/metrics/shap"
+    calibration_dir: "artifacts/experiment_1/metrics/calibration_curves"
+    comparison_dir: "artifacts/experiment_1/metrics/comparison"
+    feature_engineer: "artifacts/experiment_1/feature_engineering/feature_engineer.pkl"
+
+  experiment_2:
+
+    models_dir: "artifacts/experiment_2/models"
+    metrics_dir: "artifacts/experiment_2/metrics"
+
+    comparison_metrics: "artifacts/experiment_2/metrics/model_comparison.json"
+    comparison_table: "artifacts/experiment_2/metrics/model_comparison.csv"
+    comparison_figure: "artifacts/experiment_2/metrics/model_comparison.png"
+
+    feature_names: "artifacts/experiment_2/feature_engineering/feature_names.json"
+
+    validation_predictions: "artifacts/experiment_2/validation_predictions.csv"
+
+    confusion_matrix_dir: "artifacts/experiment_2/metrics/confusion_matrices"
+    shap_dir: "artifacts/experiment_2/metrics/shap"
+    calibration_dir: "artifacts/experiment_2/metrics/calibration_curves"
+    comparison_dir: "artifacts/experiment_2/metrics/comparison"
+    feature_engineer: "artifacts/experiment_2/feature_engineering/feature_engineer.pkl"

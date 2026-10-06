@@ -24,6 +24,7 @@ class DataPreprocessor:
     def __init__(self, config_path: str = "configs/data_config.yaml") -> None:
         self.cfg      = load_config(config_path)
         self.target   = self.cfg["data"]["target_column"]
+        self.paths_cfg = self.cfg["paths"]
         
         self._imputer = None
         self._cat_modes = {}
@@ -118,6 +119,69 @@ class DataPreprocessor:
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         joblib.dump(self, path)
         logger.info(f"DataPreprocessor saved → {path}")
+        
+    
+    def save_parquets(
+            self,
+            X_train: pd.DataFrame,
+            X_val: pd.DataFrame,
+            X_test: pd.DataFrame,
+            y_train: pd.Series,
+            y_val: pd.Series,
+            y_test: pd.Series,
+        ) -> None:
+        
+            
+            x_paths = {
+                "train": self.paths_cfg["processed_train"],
+                "val": self.paths_cfg["processed_val"],
+                "test": self.paths_cfg["processed_test"],
+            }
+            logger.info("Saving PreProcessed datasets.")
+       
+            datasets = {
+                x_paths["train"]: X_train,
+                x_paths["val"]: X_val,
+                x_paths["test"]: X_test,
+                self.paths_cfg["processed_y_train"]: y_train,
+                self.paths_cfg["processed_y_val"]: y_val,
+                self.paths_cfg["processed_y_test"]: y_test,
+            }
+        
+            for file_path, obj in datasets.items():
+                path = Path(file_path)
+                path.parent.mkdir(parents=True, exist_ok=True)
+        
+                if isinstance(obj, pd.DataFrame):
+                    obj.to_parquet(path, index=False)
+        
+                    logger.info(
+                        f"Saved {path.resolve()} | shape={obj.shape}"
+                    )
+        
+                elif isinstance(obj, np.ndarray):
+                    df = pd.DataFrame(
+                        obj,
+                        columns=self.selected_features_
+                    )
+        
+                    df.to_parquet(path, index=False)
+        
+                    logger.info(
+                        f"Saved {path.resolve()} | shape={df.shape}"
+                    )
+        
+                else:
+                    df = pd.Series(
+                        obj,
+                        name=self.target
+                    ).to_frame()
+        
+                    df.to_parquet(path, index=False)
+        
+                    logger.info(
+                        f"Saved {path.resolve()} | shape={df.shape}"
+                    )
             
     
         

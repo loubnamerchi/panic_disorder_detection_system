@@ -1,21 +1,31 @@
+# ml_training_pipeline
+
 from __future__ import annotations
 
 import json
 from pathlib import Path
+import numpy as np
 
 import joblib
 import pandas as pd
+import matplotlib
+
+matplotlib.use("Agg")
+
 import matplotlib.pyplot as plt
 
 from src.models.ML.optuna_tuner import run_optuna
-from src.models.evaluate_model import cross_validate_model
+from src.models.evaluate_model import (
+    cross_validate_model,
+    evaluate_model,
+    run_shap_analysis,
+    prepare_features,
+)
 from src.models.ML.model_factory import (
     create_model,
     get_default_params,
 )
-from src.models.compare_models import (
-    train_and_compare_models,
-)
+
 
 from src.utils.config import load_config
 from src.utils.logger import get_logger
@@ -23,54 +33,271 @@ from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-
-# ============================================================
-# MODEL INPUT SELECTION
-# ============================================================
-
-def _get_model_data(
-    model_name: str,
-    X_train,
-    X_val,
-    X_test,
-    X_train_scaled,
-    X_val_scaled,
-    X_test_scaled,
+def save_model_comparison_table(
+    comparison_results: dict,
+    models: list[str],
+    output_dir: str | Path,
 ):
     """
-    Select the appropriate feature representation
-    for each ML model.
+    Save the final model comparison as CSV and PNG.
 
-    Scaled:
-        - Logistic Regression
-
-    Unscaled:
-        - Random Forest
-        - XGBoost
-        - LightGBM
+    Includes validation metrics, test metrics, and
+    bootstrap 95% confidence intervals for test metrics.
     """
 
-    model_name = model_name.lower()
-
-    scaled_models = {
-        "logistic_regression",
-    }
-
-    if model_name in scaled_models:
-
-        return (
-            X_train_scaled,
-            X_val_scaled,
-            X_test_scaled,
-        )
-
-    return (
-        X_train,
-        X_val,
-        X_test,
+    output_dir = Path(output_dir)
+    output_dir.mkdir(
+        parents=True,
+        exist_ok=True,
     )
 
+    logger.info(
+        "Saving model comparison table..."
+    )
 
+    comparison_rows = []
+
+    for model_name in models:
+
+        test_results = comparison_results[
+            model_name
+        ]["test"]
+
+        ci = test_results[
+            "confidence_intervals"
+        ]
+
+        comparison_rows.append(
+            {
+                "Model": model_name,
+
+                # ------------------------------------------------
+                # VALIDATION METRICS
+                # ------------------------------------------------
+
+                "Val PR-AUC": comparison_results[
+                    model_name
+                ]["validation"]["pr_auc"],
+
+                "Val ROC-AUC": comparison_results[
+                    model_name
+                ]["validation"]["roc_auc"],
+
+                "Val F1": comparison_results[
+                    model_name
+                ]["validation"]["f1"],
+
+                "Val Recall": comparison_results[
+                    model_name
+                ]["validation"]["recall"],
+
+                # ------------------------------------------------
+                # TEST PR-AUC + 95% CI
+                # ------------------------------------------------
+
+                "Test PR-AUC": test_results[
+                    "pr_auc"
+                ],
+
+                "Test PR-AUC 95% CI Lower": ci[
+                    "pr_auc"
+                ]["lower"],
+
+                "Test PR-AUC 95% CI Upper": ci[
+                    "pr_auc"
+                ]["upper"],
+
+                # ------------------------------------------------
+                # TEST ROC-AUC + 95% CI
+                # ------------------------------------------------
+
+                "Test ROC-AUC": test_results[
+                    "roc_auc"
+                ],
+
+                "Test ROC-AUC 95% CI Lower": ci[
+                    "roc_auc"
+                ]["lower"],
+
+                "Test ROC-AUC 95% CI Upper": ci[
+                    "roc_auc"
+                ]["upper"],
+
+                # ------------------------------------------------
+                # TEST F1 + 95% CI
+                # ------------------------------------------------
+
+                "Test F1": test_results[
+                    "f1"
+                ],
+
+                "Test F1 95% CI Lower": ci[
+                    "f1"
+                ]["lower"],
+
+                "Test F1 95% CI Upper": ci[
+                    "f1"
+                ]["upper"],
+
+                # ------------------------------------------------
+                # TEST RECALL + 95% CI
+                # ------------------------------------------------
+
+                "Test Recall": test_results[
+                    "recall"
+                ],
+
+                "Test Recall 95% CI Lower": ci[
+                    "recall"
+                ]["lower"],
+
+                "Test Recall 95% CI Upper": ci[
+                    "recall"
+                ]["upper"],
+
+                # ------------------------------------------------
+                # TEST PRECISION + 95% CI
+                # ------------------------------------------------
+
+                "Test Precision": test_results[
+                    "precision"
+                ],
+
+                "Test Precision 95% CI Lower": ci[
+                    "precision"
+                ]["lower"],
+
+                "Test Precision 95% CI Upper": ci[
+                    "precision"
+                ]["upper"],
+
+                # ------------------------------------------------
+                # TEST BRIER SCORE + 95% CI
+                # ------------------------------------------------
+
+                "Test Brier Score": test_results[
+                    "brier_score"
+                ],
+
+                "Test Brier Score 95% CI Lower": ci[
+                    "brier_score"
+                ]["lower"],
+
+                "Test Brier Score 95% CI Upper": ci[
+                    "brier_score"
+                ]["upper"],
+            }
+        )
+
+    comparison_df = pd.DataFrame(
+        comparison_rows
+    )
+
+    # ============================================================
+    # SAVE CSV
+    # ============================================================
+
+    comparison_table_path = (
+        output_dir
+        / "model_comparison.csv"
+    )
+
+    comparison_df.to_csv(
+        comparison_table_path,
+        index=False,
+    )
+
+    logger.info(
+        "Model comparison CSV saved to %s",
+        comparison_table_path,
+    )
+
+    # ============================================================
+    # SAVE PNG TABLE
+    # ============================================================
+
+    comparison_figure_path = (
+        output_dir
+        / "15_model_comparison.png"
+    )
+
+    # The table now has many more columns, so make the figure
+    # wider than your previous 16 x 5 figure.
+    fig_width = max(
+        20,
+        len(comparison_df.columns) * 1.25,
+    )
+
+    fig, ax = plt.subplots(
+        figsize=(fig_width, 6),
+    )
+
+    ax.axis("off")
+
+    ax.set_title(
+        "Final Model Comparison",
+        fontsize=14,
+        fontweight="bold",
+        pad=20,
+    )
+
+    table = ax.table(
+        cellText=comparison_df.round(4).values,
+        colLabels=comparison_df.columns,
+        loc="center",
+        cellLoc="center",
+    )
+
+    table.auto_set_font_size(
+        False
+    )
+
+    table.set_fontsize(
+        8
+    )
+
+    table.scale(
+        1,
+        1.8,
+    )
+
+    fig.tight_layout()
+
+    fig.savefig(
+        comparison_figure_path,
+        dpi=300,
+        bbox_inches="tight",
+    )
+
+    plt.close(
+        fig
+    )
+
+    logger.info(
+        "Model comparison figure saved to %s",
+        comparison_figure_path,
+    )
+
+    return {
+        "csv_path": comparison_table_path,
+        "figure_path": comparison_figure_path,
+    }
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
 # ============================================================
 # MAIN TRAINING PIPELINE
 # ============================================================
@@ -99,7 +326,34 @@ def train_model(
         "random_state",
         42,
     )
+    
+    use_smotenc = cfg["Experiment"].get("SMOTENC", False)
+    
+    if use_smotenc:
+        experiment_name = "experiment_2"
+    else:
+        experiment_name = "experiment_1"
+        
+    artifact_cfg = cfg["artifacts"][experiment_name]
+    
+    models_dir = Path(artifact_cfg["models_dir"])
 
+    comparison_metrics = Path(artifact_cfg["comparison_metrics"])
+
+    comparison_dir = Path(artifact_cfg["comparison_dir"])
+
+    confusion_matrix_dir = Path(artifact_cfg["confusion_matrix_dir"])
+
+    shap_dir = Path(artifact_cfg["shap_dir"])
+
+    calibration_dir = Path(artifact_cfg["calibration_dir"])
+
+    feature_names_path = Path(artifact_cfg["feature_names"])
+
+    feature_engineer_path = Path(artifact_cfg["feature_engineer"])
+
+    model_suffix = cfg["artifacts"]["model_suffix"]
+        
     logger.info(
         "================ STARTING ML MODEL TRAINING ====================="
     )
@@ -118,36 +372,24 @@ def train_model(
     )
 
     # ------------------------------------------------------------
-    # Unscaled
+    # Features
     # ------------------------------------------------------------
 
-    X_train = pd.read_parquet(
-        cfg["paths"]["processed_train"]
-    )
+    # IMPORTANT:
+    # All models now receive RAW features.
+    #
+    # Logistic Regression performs scaling internally through
+    # the Pipeline defined in create_model().
+    #
+    # Therefore, there is no need to load separate
+    # X_train_scaled / X_val_scaled / X_test_scaled datasets.
+    
 
-    X_val = pd.read_parquet(
-        cfg["paths"]["processed_val"]
-    )
-
-    X_test = pd.read_parquet(
-        cfg["paths"]["processed_test"]
-    )
-
-    # ------------------------------------------------------------
-    # Scaled
-    # ------------------------------------------------------------
-
-    X_train_scaled = pd.read_parquet(
-        cfg["paths"]["processed_train_scale"]
-    )
-
-    X_val_scaled = pd.read_parquet(
-        cfg["paths"]["processed_val_scale"]
-    )
-
-    X_test_scaled = pd.read_parquet(
-        cfg["paths"]["processed_test_scale"]
-    )
+    X_train = pd.read_parquet(cfg["paths"]["processed_train"])
+        
+    X_val = pd.read_parquet(cfg["paths"]["processed_val"])
+        
+    X_test = pd.read_parquet(cfg["paths"]["processed_test"])
 
     # ------------------------------------------------------------
     # Target
@@ -229,27 +471,13 @@ def train_model(
         )
 
         # --------------------------------------------------------
-        # Select scaled / unscaled data
+        # ALL MODELS RECEIVE RAW X_train
         # --------------------------------------------------------
-
-        (
-            X_train_model,
-            X_val_model,
-            X_test_model,
-        ) = _get_model_data(
-            model_name=model_name,
-            X_train=X_train,
-            X_val=X_val,
-            X_test=X_test,
-            X_train_scaled=X_train_scaled,
-            X_val_scaled=X_val_scaled,
-            X_test_scaled=X_test_scaled,
-        )
 
         if model_name == "logistic_regression":
 
             logger.info(
-                "%s: using SCALED features",
+                "%s: StandardScaler is inside model Pipeline",
                 model_name,
             )
 
@@ -275,9 +503,10 @@ def train_model(
                 study,
             ) = run_optuna(
                 model_name=model_name,
-                X_train=X_train_model,
+                X_train=X_train,
                 y_train=y_train,
                 cfg=cfg,
+                use_smotenc=use_smotenc,
             )
 
             best_params[
@@ -356,22 +585,8 @@ def train_model(
         )
 
         # --------------------------------------------------------
-        # Select scaled / unscaled data
+        # CREATE MODEL
         # --------------------------------------------------------
-
-        (
-            X_train_model,
-            _,
-            _,
-        ) = _get_model_data(
-            model_name=model_name,
-            X_train=X_train,
-            X_val=X_val,
-            X_test=X_test,
-            X_train_scaled=X_train_scaled,
-            X_val_scaled=X_val_scaled,
-            X_test_scaled=X_test_scaled,
-        )
 
         model = create_model(
             model_name=model_name,
@@ -381,10 +596,21 @@ def train_model(
             random_state=random_state,
         )
 
+        # --------------------------------------------------------
+        # CV ON RAW X_train
+        #
+        # For Logistic Regression:
+        #     Pipeline = StandardScaler + LogisticRegression
+        #
+        # Therefore scaling occurs independently inside
+        # every CV fold.
+        # --------------------------------------------------------
+
         cv_stats = cross_validate_model(
             model=model,
-            X=X_train_model,
+            X=X_train,
             y=y_train,
+            use_smotenc=use_smotenc,
             n_splits=n_splits,
         )
 
@@ -466,43 +692,23 @@ def train_model(
         "\n[4/6] FINAL MODEL TRAINING"
     )
 
-    # ------------------------------------------------------------
-    # Prepare model-specific datasets
-    # ------------------------------------------------------------
-
-    model_data = {}
-
-    for model_name in models:
-
-        (
-            X_train_model,
-            X_val_model,
-            X_test_model,
-        ) = _get_model_data(
-            model_name=model_name,
-            X_train=X_train,
-            X_val=X_val,
-            X_test=X_test,
-            X_train_scaled=X_train_scaled,
-            X_val_scaled=X_val_scaled,
-            X_test_scaled=X_test_scaled,
-        )
-
-        model_data[
-            model_name
-        ] = {
-            "X_train": X_train_model,
-            "X_val": X_val_model,
-            "X_test": X_test_model,
-        }
-
-    # ------------------------------------------------------------
-    # Train models individually
-    # ------------------------------------------------------------
-
     trained_models = {}
     comparison_results = {}
-
+    
+    
+    X_train, y_train, X_val, X_test , fe = prepare_features(
+            X_train=X_train,
+            y_train=y_train,
+            X_val=X_val,
+            X_test=X_test,
+            use_smotenc=use_smotenc,
+            random_state=random_state,
+        )
+    fe.save_feature_engineer(feature_engineer_path)
+    
+    
+    feature_names = X_train.columns.tolist()
+                    
     for model_name in models:
 
         logger.info(
@@ -510,17 +716,9 @@ def train_model(
             model_name,
         )
 
-        X_train_model = model_data[
-            model_name
-        ]["X_train"]
-
-        X_val_model = model_data[
-            model_name
-        ]["X_val"]
-
-        X_test_model = model_data[
-            model_name
-        ]["X_test"]
+        # --------------------------------------------------------
+        # CREATE MODEL
+        # --------------------------------------------------------
 
         model = create_model(
             model_name=model_name,
@@ -531,21 +729,29 @@ def train_model(
         )
 
         # --------------------------------------------------------
-        # Final training
+        # FINAL TRAINING
+        #
+        # ALL MODELS RECEIVE RAW X_train.
+        #
+        # Logistic Regression:
+        #     Pipeline automatically fits scaler on X_train.
+        #
+        # Tree models:
+        #     Train directly on raw features.
         # --------------------------------------------------------
 
         if model_name == "xgboost":
 
             model.fit(
-                X_train_model,
+                X_train,
                 y_train,
                 eval_set=[
                     (
-                        X_train_model,
+                        X_train,
                         y_train,
                     ),
                     (
-                        X_val_model,
+                        X_val,
                         y_val,
                     ),
                 ],
@@ -555,25 +761,26 @@ def train_model(
         elif model_name == "lightgbm":
 
             model.fit(
-                X_train_model,
-                y_train,
-                eval_set=[
-                    (
-                        X_train_model,
-                        y_train,
-                    ),
-                    (
-                        X_val_model,
-                        y_val,
-                    ),
-                ],
-                callbacks=[],
-            )
+                            X_train,
+                            y_train,
+                            eval_set=[
+                                (
+                                    X_train,
+                                    y_train,
+                                ),
+                                (
+                                    X_val,
+                                    y_val,
+                                ),
+                            ],
+                            callbacks=[],
+                        )
+            
 
         else:
 
             model.fit(
-                X_train_model,
+                X_train,
                 y_train,
             )
 
@@ -582,24 +789,33 @@ def train_model(
         ] = model
 
         # --------------------------------------------------------
-        # Evaluation
+        # VALIDATION
         # --------------------------------------------------------
 
-        from src.models.compare_models import (
-            evaluate_model as evaluate_final_model,
-        )
-
-        val_metrics = evaluate_final_model(
+        val_metrics = evaluate_model(
             model,
-            X_val_model,
+            X_val,
             y_val,
+            model_name=model_name,
         )
 
-        test_metrics = evaluate_final_model(
+        # --------------------------------------------------------
+        # TEST
+        # --------------------------------------------------------
+
+        test_metrics = evaluate_model(
             model,
-            X_test_model,
+            X_test,
             y_test,
+            model_name=model_name,
+            confusion_matrix_dir=confusion_matrix_dir,
+            calibration_dir=calibration_dir,
+            bootstrap_ci=True,
         )
+
+        # --------------------------------------------------------
+        # STORE RESULTS
+        # --------------------------------------------------------
 
         comparison_results[
             model_name
@@ -671,15 +887,30 @@ def train_model(
     ] = best_model_name
 
     # ============================================================
+    # SHAP MODEL INTERPRETABILITY
+    # ============================================================
+
+    logger.info(
+        "\n[SHAP] MODEL INTERPRETABILITY"
+    )
+
+    shap_importance = run_shap_analysis(
+        model=trained_models[
+            best_model_name
+        ],
+        X_train=X_train,
+        X_test=X_test,
+        model_name=best_model_name,
+        output_dir=shap_dir,
+        random_state=random_state,
+    )
+
+    # ============================================================
     # 6. SAVE EVERYTHING
     # ============================================================
 
     logger.info(
         "\n[6/6] SAVE MODELS AND METRICS"
-    )
-
-    models_dir = Path(
-        cfg["artifacts"]["models_dir"]
     )
 
     models_dir.mkdir(
@@ -699,8 +930,9 @@ def train_model(
         model_path = (
             models_dir
             / f"{model_name}"
-            f"{cfg['artifacts']['model_suffix']}"
+            / f"{model_name}{model_suffix}"
         )
+        model_path.parent.mkdir(parents=True,exist_ok=True,)
 
         joblib.dump(
             model,
@@ -717,19 +949,13 @@ def train_model(
     # Save complete comparison
     # ------------------------------------------------------------
 
-    comparison_path = Path(
-        cfg["artifacts"][
-            "comparison_metrics"
-        ]
-    )
-
-    comparison_path.parent.mkdir(
+    comparison_metrics.parent.mkdir(
         parents=True,
         exist_ok=True,
     )
 
     with open(
-        comparison_path,
+        comparison_metrics,
         "w",
         encoding="utf-8",
     ) as f:
@@ -739,16 +965,10 @@ def train_model(
             f,
             indent=2,
         )
-
+ 
     # ------------------------------------------------------------
     # Save feature names
     # ------------------------------------------------------------
-
-    feature_names_path = Path(
-        cfg["artifacts"][
-            "feature_names"
-        ]
-    )
 
     feature_names_path.parent.mkdir(
         parents=True,
@@ -771,133 +991,11 @@ def train_model(
     # SAVE MODEL COMPARISON TABLE
     # ============================================================
 
-    logger.info(
-        "Saving model comparison table..."
-    )
-
-    comparison_rows = []
-
-    for model_name in models:
-
-        comparison_rows.append(
-            {
-                "Model": model_name,
-
-                "Val PR-AUC": comparison_results[
-                    model_name
-                ]["validation"]["pr_auc"],
-
-                "Val ROC-AUC": comparison_results[
-                    model_name
-                ]["validation"]["roc_auc"],
-
-                "Val F1": comparison_results[
-                    model_name
-                ]["validation"]["f1"],
-
-                "Val Recall": comparison_results[
-                    model_name
-                ]["validation"]["recall"],
-
-                "Test PR-AUC": comparison_results[
-                    model_name
-                ]["test"]["pr_auc"],
-
-                "Test ROC-AUC": comparison_results[
-                    model_name
-                ]["test"]["roc_auc"],
-
-                "Test F1": comparison_results[
-                    model_name
-                ]["test"]["f1"],
-
-                "Test Recall": comparison_results[
-                    model_name
-                ]["test"]["recall"],
-            }
-        )
-
-    comparison_df = pd.DataFrame(
-        comparison_rows
-    )
-
-    # ------------------------------------------------------------
-    # Save table as CSV
-    # ------------------------------------------------------------
-
-    comparison_table_path = (
-        comparison_path.parent
-        / "model_comparison.csv"
-    )
-
-    comparison_df.to_csv(
-        comparison_table_path,
-        index=False,
-    )
-
-    logger.info(
-        "Model comparison CSV saved to %s",
-        comparison_table_path,
-    )
-
-    # ------------------------------------------------------------
-    # Save table as PNG figure
-    # ------------------------------------------------------------
-
-    comparison_figure_path = (
-        comparison_path.parent
-        / "15_model_comparison.png"
-    )
-
-    fig, ax = plt.subplots(
-        figsize=(16, 5)
-    )
-
-    ax.axis("off")
-
-    ax.set_title(
-        "Final Model Comparison",
-        fontsize=14,
-        fontweight="bold",
-        pad=20,
-    )
-
-    table = ax.table(
-        cellText=comparison_df.round(4).values,
-        colLabels=comparison_df.columns,
-        loc="center",
-        cellLoc="center",
-    )
-
-    table.auto_set_font_size(
-        False
-    )
-
-    table.set_fontsize(
-        9
-    )
-
-    table.scale(
-        1,
-        1.8,
-    )
-
-    fig.tight_layout()
-
-    fig.savefig(
-        comparison_figure_path,
-        dpi=300,
-        bbox_inches="tight",
-    )
-
-    plt.close(
-        fig
-    )
-
-    logger.info(
-        "Model comparison figure saved to %s",
-        comparison_figure_path,
-    )
+    save_model_comparison_table(
+        comparison_results=comparison_results,
+        models=models,
+        output_dir=comparison_dir,)
+    
 
     # ============================================================
     # FINAL MODEL COMPARISON
@@ -1000,12 +1098,6 @@ def train_model(
         "X_val": X_val,
 
         "X_test": X_test,
-
-        "X_train_scaled": X_train_scaled,
-
-        "X_val_scaled": X_val_scaled,
-
-        "X_test_scaled": X_test_scaled,
 
         "y_train": y_train,
 
