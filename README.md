@@ -1051,18 +1051,22 @@ This project is an **experimental research and portfolio project**. It is **not 
 
 ## Future work
 
-**Engineering**
+Already completed and therefore not listed here: both experiments with Optuna tuning, calibration curves, SHAP for the selected models, and a working, verified FastAPI service (see [Implementation status](#implementation-status)).
 
-- [x] Repair the FastAPI loader/inference path (done; verified end-to-end).
-- [ ] API: allow nullable history fields, validate categories against `categorical_values.yaml`, make the served experiment and threshold configurable, and add automated API tests.
+**Deployment / API**
+
+- [ ] Add automated API tests (health, info, single/batch prediction, training–serving parity, input validation).
+- [ ] Re-test the Streamlit client against the working API.
+- [ ] Docker image, CI pipeline, and a hosted API and Streamlit front-end with authentication.
+
+**Pipeline engineering**
+
 - [ ] Persist validation/test predictions (`validation_predictions` is configured but not written).
 - [ ] Run SHAP for every model, not only the selected one, and clear the SHAP folder at the start of each run so that files from earlier runs cannot persist.
-- [ ] Docker, CI, and a properly hosted API and Streamlit front-end.
 
 **Methodology**
 
 - [ ] **Leakage sensitivity analysis:** retrain without `Lifestyle Factors`, and separately within the Sleep-quality subgroup only, to quantify how much performance depends on the gate.
-- [ ] **Imbalance alternatives:** class weighting / `scale_pos_weight`, milder SMOTENC ratios (for example `sampling_strategy=0.25`), integer-rounding of synthetic ages, and **prior correction** of resampled-model probabilities.
 - [ ] Explicit "Missing" categories or missingness indicators instead of mode imputation.
 - [ ] Ordinal encoding for Severity, Impact on Life, Current Stressors and Social Support.
 - [ ] **Probability recalibration** (Platt / isotonic on validation); report ECE and calibration slope/intercept in the pipeline.
@@ -1072,10 +1076,7 @@ This project is an **experimental research and portfolio project**. It is **not 
 - [ ] Subgroup and fairness analysis (gender, demographics, age bands).
 - [ ] Uncertainty estimation (for example, conformal prediction).
 - [ ] Formal synthetic-rule extraction (shallow trees or RuleFit) to characterize the generator.
-- [ ] **External validation** on an independent, documented clinical dataset. Prospective validation would be required before any clinical claim.
-- [ ] Deep tabular models (**MLP, TabNet, FT-Transformer**). Hyperparameter spaces are in `config.yaml`; model code is not yet written.
-
----
+- [ ] Deep tabular models (**MLP, TabNet, FT-Transformer**).
 
 ## Author
 
