@@ -2,7 +2,7 @@
 
 **A robust evaluation of psychological, behavioral, and clinical predictors**
 
-> **Status (October 2026).** Both experiments have been run end-to-end, each with 50-trial Optuna tuning per model: **Experiment 1** (baseline, no resampling) and **Experiment 2** (SMOTENC). All reported numbers come from saved artifacts, and every test metric was re-verified by reloading the saved models. The FastAPI service is a **work-in-progress prototype**. This is a research/portfolio project and **not a clinically validated diagnostic tool**.
+> **Status (October 2026).** Both experiments have been run end-to-end, each with 50-trial Optuna tuning per model: **Experiment 1** (baseline, no resampling) and **Experiment 2** (SMOTENC). All reported numbers come from saved artifacts, and every test metric was re-verified by reloading the saved models. A FastAPI service serving the selected model runs locally and has been verified end-to-end. This is a research/portfolio project and **not a clinically validated diagnostic tool**.
 
 ---
 
@@ -83,7 +83,7 @@ The project is therefore built around **leakage-aware evaluation** rather than m
 | 9 | Explain models with SHAP | ✅ TreeSHAP on the selected model per experiment |
 | 10 | Assess probability calibration | ✅ Reliability curves, Brier, ECE (no recalibration yet) |
 | 11 | Identify the strongest model and its limitations | ✅ |
-| 12 | Prepare the model for deployment | ⚠️ FastAPI and Streamlit prototype with known issues |
+| 12 | Prepare the model for deployment | ✅ Local FastAPI service (verified); Streamlit client available |
 
 ---
 
@@ -102,8 +102,8 @@ The project is therefore built around **leakage-aware evaluation** rather than m
 | Test evaluation, bootstrap 95% CIs, confusion matrices | ✅ Implemented and run | `artifacts/experiment_*/metrics/` |
 | Calibration curves and Brier score | ✅ Implemented and run | `metrics/calibration_curves/` |
 | SHAP (TreeExplainer / LinearExplainer) | ✅ Implemented and run (selected model only) | `metrics/shap/` |
-| FastAPI inference service | ⚠️ Prototype, **does not start with current config** | see [FastAPI deployment](#fastapi-deployment) |
-| Streamlit client | ⚠️ Prototype (depends on the API) | `streamlit/app.py` |
+| FastAPI inference service (serves Exp. 1 best model) | ✅ Implemented and verified locally | see [FastAPI deployment](#fastapi-deployment) |
+| Streamlit client | ⚠️ Implemented, calls the API; not re-tested in this review | `streamlit/app.py` |
 | Probability recalibration, threshold optimization | ❌ Planned | — |
 | Deep-learning models (MLP, TabNet, FT-Transformer) | ❌ Planned: hyperparameters exist in `config.yaml`, no model code | `dl_models` in config |
 
@@ -133,8 +133,8 @@ flowchart TD
     P --> R["model_comparison.json / .csv"]
     Q --> R
     R --> X["Experiment 1 vs 2 comparison<br/>(this README)"]
-    R --> S["FastAPI /predict (prototype)"]
-    S --> T["Streamlit client (prototype)"]
+    R --> S["FastAPI /predict, /predict/batch<br/>(serves Exp. 1 best model)"]
+    S --> T["Streamlit client"]
 ```
 
 > The audit and statistical analysis (C–E) are **exploratory and use the full 120k dataset**. They informed interpretation but were **not** used to select or drop features. All 15 predictors are modelled.
@@ -852,9 +852,9 @@ Healthcare_research/
 │   │       └── shap/                          # beeswarm, bar, CSV
 │   └── experiment_2/               # SMOTENC — same layout
 │
-├── app/                            # FastAPI prototype
-│   ├── main.py                     # /health, /info, /predict, /predict/batch
-│   ├── main_monitor.py             # variant with Prometheus metrics (not wired up)
+├── app/                            # FastAPI inference service
+│   ├── main.py                     # entry point: /health, /info, /predict, /predict/batch
+│   ├── main_monitor.py             # Prometheus variant (not functional yet)
 │   └── loader.py, inference.py, schemas.py
 │
 ├── streamlit/
@@ -943,26 +943,50 @@ risk = mdl.predict_proba(X)[:, 1]
 
 ## FastAPI deployment
 
-**Status: local prototype. It is not production-ready and does not currently start with the committed configuration.**
+**Status: working local service (verified end-to-end, October 2026).** It runs locally and is not a production deployment: it has no authentication, no input-category validation and no hosted instance.
 
-### Design (implemented in `app/`)
+### Run it
+
+Start the API **from the repository root**, because loading the saved `FeatureEngineer` / `DataPreprocessor` objects imports the `src` package:
+
+```bash
+uvicorn app.main:app --reload --port 8000
+# Interactive docs: http://localhost:8000/docs
+
+streamlit run streamlit/app.py      # optional UI client; set API_URL if the API is not on localhost:8000
+```
+
+### Endpoints
 
 | Endpoint | Method | Purpose |
 |---|---|---|
-| `/health` | GET | Artifact availability |
-| `/info` | GET | Best model's test metrics plus the feature list |
-| `/predict` | POST | Single record → `{prediction, probability, is_panic_disorder}` |
-| `/predict/batch` | POST | Up to 1,000 records → predictions, probabilities, positive count, total |
+| `/health` | GET | `{"status": "ok", "model_loaded": true}` once artifacts are loaded |
+| `/info` | GET | Served model's test metrics (PR-AUC, ROC-AUC, precision, recall, F1, specificity, Brier) and its 27 feature names |
+| `/predict` | POST | One record → `{prediction, probability, is_panic_disorder}` |
+| `/predict/batch` | POST | `{"requests": [...]}` with 1–1,000 records → `{predictions, probabilities, panic_disorder_count, total}` (empty or >1,000 → HTTP 422) |
 
-Inference path (`app/inference.py`):
+### What is served
 
-1. Rename the snake_case API fields to dataset column names.
+`app/loader.py` loads the **Experiment 1** artifacts (`config.yaml → artifacts.experiment_1`) once at startup and caches them:
+
+| Artifact | Path |
+|---|---|
+| Model | the `best_model` named in `artifacts/experiment_1/metrics/model_comparison.json` → currently **LightGBM** (`models/lightgbm/lightgbm_model.joblib`) |
+| Imputer | `artifacts/preprocessing/preprocessor.pkl` (train-fitted `DataPreprocessor`) |
+| Encoder | `artifacts/experiment_1/feature_engineering/feature_engineer.pkl` (train-fitted `FeatureEngineer`) |
+| Feature order | `artifacts/experiment_1/feature_engineering/feature_names.json` |
+
+Inference path (`app/inference.py`), the same transformations as training:
+
+1. Rename snake_case API fields to dataset column names.
 2. `DataPreprocessor.transform` (train-fitted imputation).
-3. Feature engineering.
+3. `FeatureEngineer.encode_onehot(..., fit=False)` (train-fitted one-hot encoder).
 4. Align columns to `feature_names.json`.
-5. `model.predict_proba` / `predict` (threshold 0.5).
+5. `model.predict_proba` → `probability`; `model.predict` → `prediction` (threshold **0.5**).
 
-Example request body (`PanicDisorderRequest`):
+### Example
+
+Request (`POST /predict`):
 
 ```json
 {
@@ -974,19 +998,29 @@ Example request body (`PanicDisorderRequest`):
 }
 ```
 
-### Known issues (verified)
+Response:
 
-1. **The loader reads config keys that don't exist.** `app/loader.py` reads `cfg["artifacts"]["comparison_metrics"]`, `cfg["artifacts"]["models_dir"]` and `cfg["paths"]["feature_engineer"]`, which no longer exist at that level of `config.yaml` (they now sit under `artifacts.experiment_*`). Startup fails with `KeyError: 'comparison_metrics'`. The model path also omits the `<model>/` sub-directory, and the loader has no setting for which experiment to serve.
-2. **Inference calls a method that doesn't exist.** `app/inference.py` calls `feature_engineer.transform()`, which `FeatureEngineer` does not define; the equivalent is `encode_onehot(df, fit=False)`.
-3. **Missing values can't be sent.** The request schema makes `medical_history`, `psychiatric_history` and `substance_use` required strings.
-4. **The monitoring variant is broken.** `app/main_monitor.py` imports a non-existent `app.model_loader` and `prometheus_client` (not in `requirements.txt`), and uses `body.transactions` where the schema defines `requests`.
-
-Intended launch commands, once fixed:
-
-```bash
-uvicorn app.main:app --reload --port 8000
-streamlit run streamlit/app.py      # set API_URL if the API is not on localhost:8000
+```json
+{"prediction": 0, "probability": 2e-06, "is_panic_disorder": false}
 ```
+
+The same record with `lifestyle_factors: "Sleep quality"`, `current_stressors: "High"`, `severity: "Severe"`, `impact_on_life: "Significant"`, `symptoms: "Panic attacks"`, `personal_history: "Yes"` and `coping_mechanisms: "Meditation"` returns `{"prediction": 1, "probability": 0.94686, "is_panic_disorder": true}`. This reflects the gate-plus-risk-indicator structure described in the [audit](#data-leakage-and-synthetic-rule-audit).
+
+### Verification
+
+The running server was tested with HTTP requests:
+
+- `/health` and `/info` return 200; `/info` reports the Exp. 1 LightGBM test metrics shown in [Results](#experiment-1-results).
+- **Training/serving parity:** 500 test-set records were sent through `/predict/batch`. The returned probabilities match the saved model applied directly to the same records to within 5 × 10⁻⁷, which is the API's 6-decimal rounding.
+- Batch-size limits work: an empty batch and a batch of 1,001 records are both rejected with 422.
+
+### Remaining limitations
+
+1. **Missing history values cannot be sent.** `medical_history`, `psychiatric_history` and `substance_use` are required strings in `app/schemas.py`, so `null` is rejected with 422, although 25–33% of the data has these fields missing. Making them `str | None = None` would let the train-fitted imputer handle them.
+2. **No category validation.** An unseen value (for example `"symptoms": "Headache"`) is accepted and silently encoded as the reference level, because the encoder uses `handle_unknown="ignore"`. Restricting fields to the values in `categorical_values.yaml` (for example with `Literal[...]` types) would reject such inputs.
+3. **The served experiment is fixed in code** (`experiment_1` in `app/loader.py`), and the decision threshold is fixed at 0.5.
+4. **`app/main_monitor.py` (Prometheus variant) is not functional.** It needs `prometheus_client` (not in `requirements.txt`), uses `body.transactions` where the schema defines `requests`, and reads `arts["model_version"]`, which the loader does not return. `app/main.py` is the working entry point.
+5. **Local prototype only.** There is no authentication or rate limiting, and CORS allows all origins. The Streamlit client was not part of this verification.
 
 ---
 
@@ -1019,7 +1053,8 @@ This project is an **experimental research and portfolio project**. It is **not 
 
 **Engineering**
 
-- [ ] Repair the FastAPI loader/inference path, add an experiment selector, allow nullable history fields, and add API tests.
+- [x] Repair the FastAPI loader/inference path (done; verified end-to-end).
+- [ ] API: allow nullable history fields, validate categories against `categorical_values.yaml`, make the served experiment and threshold configurable, and add automated API tests.
 - [ ] Persist validation/test predictions (`validation_predictions` is configured but not written).
 - [ ] Run SHAP for every model, not only the selected one, and clear the SHAP folder at the start of each run so that files from earlier runs cannot persist.
 - [ ] Docker, CI, and a properly hosted API and Streamlit front-end.
