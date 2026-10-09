@@ -15,7 +15,7 @@ from prometheus_client import (
 )
 from starlette.responses import Response
 
-from app.model_loader import get_artifacts
+from app.loader import get_artifacts
 from app.inference import run_batch, run_single
 from app.schemas import (
     BatchPanicDisorderRequest,

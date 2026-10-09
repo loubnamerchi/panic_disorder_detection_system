@@ -34,7 +34,7 @@ split:
   stratify: true
 
 Experiment:
-  SMOTENC: False
+  SMOTENC: True
   
 
 feature_engineering:
@@ -140,7 +140,7 @@ cross_validation:
 
 optuna:
 
-  enabled: False
+  enabled: True
   n_trials: 50
 
 

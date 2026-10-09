@@ -75,7 +75,7 @@ def prepare_features(
         # ====================================================
         # 1. ORDINAL ENCODING
         # ====================================================
-
+        """
         X_train_ord = fe.encode_ordinal(
             X_train,
             fit=True,
@@ -93,29 +93,25 @@ def prepare_features(
                 X_test,
                 fit=False,
             )
-
+        """
         # ====================================================
         # 2. CATEGORICAL INDICES
         # ====================================================
 
-        categorical_indices = [
-            X_train_ord.columns.get_loc(col)
-            for col in fe.categorical_columns_
-            if col in X_train_ord.columns
-        ]
+        cat_cols = X_train.select_dtypes(include=["object", "category"]).columns.tolist()
 
         # ====================================================
         # 3. SMOTENC ONLY ON TRAINING DATA
         # ====================================================
 
         smotenc_sampler = SMOTENC(
-            categorical_features=categorical_indices,
+            categorical_features=cat_cols,
             random_state=random_state,
         )
 
         X_train_resampled, y_train_resampled = (
             smotenc_sampler.fit_resample(
-                X_train_ord,
+                X_train,
                 y_train,
             )
         )
@@ -130,15 +126,15 @@ def prepare_features(
         )
 
         X_val_final = fe.encode_onehot(
-            X_val_ord,
+            X_val,
             fit=False,
         )
 
         X_test_final = None
 
-        if X_test_ord is not None:
+        if X_test is not None:
             X_test_final = fe.encode_onehot(
-                X_test_ord,
+                X_test,
                 fit=False,
             )
 

@@ -6,7 +6,6 @@ import logging
 import time
 
 import pandas as pd
-
 logger = logging.getLogger(__name__)
 
 
@@ -128,7 +127,7 @@ def _score(df: pd.DataFrame, artifacts: dict):
     df_clean = preprocessor.transform(df)
 
     # Apply the SAME fitted feature engineering used during training
-    df_eng = feature_engineer.transform(df_clean)
+    df_eng = feature_engineer.encode_onehot(df_clean, fit=False)
 
     # Align columns with the features used during model training
     expected = artifacts["feature_names"]

@@ -18,10 +18,13 @@ logger = logging.getLogger(__name__)
 def get_artifacts() -> dict:
     
     cfg = load_config("config.yaml")
+    # ── Experiment 1 artifact paths ───────────────────────────────────
+    artifacts_cfg = cfg["artifacts"]
+    exp_cfg = artifacts_cfg["experiment_1"]
     
     # 2. LOAD BEST MODEL
     
-    comparison_path = Path(cfg["artifacts"]["comparison_metrics"])
+    comparison_path = Path(exp_cfg["comparison_metrics"])
     with open(comparison_path, "r") as f:
         comparison_results = json.load(f)
 
@@ -29,7 +32,7 @@ def get_artifacts() -> dict:
 
     logger.info( "Best model: %s",best_model_name,)
 
-    model_path = (Path(cfg["artifacts"]["models_dir"])/ f"{best_model_name}{cfg['artifacts']['model_suffix']}")
+    model_path = (Path(exp_cfg["models_dir"])/ best_model_name / f"{best_model_name}{artifacts_cfg['model_suffix']}")
     model = joblib.load(model_path)
 
     logger.info("Model loaded from: %s",model_path,)
@@ -43,7 +46,7 @@ def get_artifacts() -> dict:
     logger.info("  ✓ preprocessor loaded")
 
     # ── FeatureEngineer ───────────────────────────────────────────────────────
-    fe_path = Path(cfg["paths"]["feature_engineer"])
+    fe_path = Path(exp_cfg["feature_engineer"])
     if not fe_path.exists():
         raise FileNotFoundError(f"FeatureEngineer not found: {fe_path}")
     with open(fe_path, "rb") as f:
@@ -51,7 +54,7 @@ def get_artifacts() -> dict:
     logger.info("  ✓ feature_engineer loaded")
 
     # ── Feature names ─────────────────────────────────────────────────────────
-    fn_path = Path(cfg["paths"]["feature_names"])
+    fn_path = Path(exp_cfg["feature_names"])
     feature_names = json.loads(fn_path.read_text()) if fn_path.exists() else []
     logger.info("  ✓ feature_names loaded (%d features)", len(feature_names))
     

@@ -1,28 +1,28 @@
 Feature,Mean_Absolute_SHAP
-Lifestyle Factors_Sleep quality,2.724399134634765
-Severity_Severe,1.264880450796977
-Impact on Life_Significant,1.1941467049226309
-Current Stressors_Low,0.9383268341127832
-Current Stressors_Moderate,0.9353563292616454
-Symptoms_Panic attacks,0.7022067754721797
-Family History_Yes,0.6412350724170705
-Personal History_Yes,0.5728484701327352
-Coping Mechanisms_Socializing,0.48041559475682033
-Coping Mechanisms_Meditation,0.4447793238297751
-Coping Mechanisms_Seeking therapy,0.44441271072712724
-Social Support_Low,0.35911392575288215
-Lifestyle Factors_Exercise,0.21122513195438622
-Demographics_Urban,0.14482240378396216
-Medical History_Diabetes,0.13639635249631293
-Psychiatric History_Bipolar disorder,0.12945517647593074
-Substance Use_Drugs,0.12749975910499955
-Impact on Life_Moderate,0.11581821724108415
-Age,0.09623860197323292
-Social Support_Moderate,0.05884967545523823
-Gender_Male,0.03385614242746417
-Severity_Moderate,0.03277869982257793
-Symptoms_Dizziness,0.030114047359811196
-Symptoms_Shortness of breath,0.023199134113615495
-Symptoms_Fear of losing control,0.022350266310081343
-Medical History_Heart disease,0.011304765656343538
-Psychiatric History_Depressive disorder,0.010867803321850639
+Lifestyle Factors_Sleep quality,2.1641522752075817
+Impact on Life_Significant,1.129886278979912
+Severity_Severe,1.0735820235858264
+Current Stressors_Moderate,1.0409725723265455
+Current Stressors_Low,0.972350980348037
+Symptoms_Panic attacks,0.8165676016222021
+Family History_Yes,0.7873805725087331
+Personal History_Yes,0.7566957890615631
+Coping Mechanisms_Socializing,0.5454080359219005
+Coping Mechanisms_Meditation,0.544189518897504
+Coping Mechanisms_Seeking therapy,0.5010136272973982
+Social Support_Low,0.39825386230117177
+Lifestyle Factors_Exercise,0.3717934117603939
+Demographics_Urban,0.19029455315601324
+Medical History_Diabetes,0.18276926391220363
+Substance Use_Drugs,0.15300355905990115
+Psychiatric History_Bipolar disorder,0.13595309506854397
+Age,0.0657675609225616
+Impact on Life_Moderate,0.0473976191799932
+Severity_Moderate,0.04351818516350655
+Gender_Male,0.02763359764037736
+Symptoms_Dizziness,0.02142488094588478
+Symptoms_Shortness of breath,0.018859914085307163
+Social Support_Moderate,0.018658689735922915
+Symptoms_Fear of losing control,0.011024532693303455
+Medical History_Heart disease,0.004094404160365486
+Psychiatric History_Depressive disorder,0.0028748205879395527
